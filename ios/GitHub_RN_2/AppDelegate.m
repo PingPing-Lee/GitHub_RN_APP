@@ -1,0 +1,86 @@
+#import "AppDelegate.h"
+#import <CodePush/CodePush.h>
+#import <React/RCTBridge.h>
+#import <React/RCTBundleURLProvider.h>
+#import <React/RCTRootView.h>
+#import <UMCommon/UMConfigure.h>
+#import "RNSplashScreen.h"  // here
+#import "RNUMConfigure.h"
+#import <UMShare/UMShare.h>
+#import "./Constants.h"
+
+#ifdef FB_SONARKIT_ENABLED
+#import <FlipperKit/FlipperClient.h>
+#import <FlipperKitLayoutPlugin/FlipperKitLayoutPlugin.h>
+#import <FlipperKitUserDefaultsPlugin/FKUserDefaultsPlugin.h>
+#import <FlipperKitNetworkPlugin/FlipperKitNetworkPlugin.h>
+#import <SKIOSNetworkPlugin/SKIOSNetworkAdapter.h>
+#import <FlipperKitReactPlugin/FlipperKitReactPlugin.h>
+
+
+static void InitializeFlipper(UIApplication *application) {
+  FlipperClient *client = [FlipperClient sharedClient];
+  SKDescriptorMapper *layoutDescriptorMapper = [[SKDescriptorMapper alloc] initWithDefaults];
+  [client addPlugin:[[FlipperKitLayoutPlugin alloc] initWithRootNode:application withDescriptorMapper:layoutDescriptorMapper]];
+  [client addPlugin:[[FKUserDefaultsPlugin alloc] initWithSuiteName:nil]];
+  [client addPlugin:[FlipperKitReactPlugin new]];
+  [client addPlugin:[[FlipperKitNetworkPlugin alloc] initWithNetworkAdapter:[SKIOSNetworkAdapter new]]];
+  [client start];
+}
+#endif
+
+@implementation AppDelegate
+
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
+{
+  [self initUmeng];
+#ifdef FB_SONARKIT_ENABLED
+  InitializeFlipper(application);
+#endif
+
+  RCTBridge *bridge = [[RCTBridge alloc] initWithDelegate:self launchOptions:launchOptions];
+  RCTRootView *rootView = [[RCTRootView alloc] initWithBridge:bridge
+                                                   moduleName:@"GitHub_RN"
+                                            initialProperties:nil];
+
+  if (@available(iOS 13.0, *)) {
+      rootView.backgroundColor = [UIColor systemBackgroundColor];
+  } else {
+      rootView.backgroundColor = [UIColor whiteColor];
+  }
+
+  self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+  UIViewController *rootViewController = [UIViewController new];
+  rootViewController.view = rootView;
+  self.window.rootViewController = rootViewController;
+  [self.window makeKeyAndVisible];
+  [RNSplashScreen show];  // here
+  return YES;
+}
+
+- (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
+{
+#if DEBUG
+  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index" fallbackResource:nil];
+#else //没有使用CodePush热更新的情况
+    // return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
+  //如果在项目中使用了CodePush热更新，那么我们需要就可以直接通过CodePush来读取本地的jsbundle，方法如下： For React Native >=0.59,https://github.com/microsoft/react-native-code-push/blob/master/docs/setup-ios.md
+  return [CodePush bundleURL];
+#endif
+}
+
+- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation
+{
+  BOOL result = [[UMSocialManager defaultManager] handleOpenURL:url];
+  if (!result) {
+    // 其他如支付等SDK的回调
+  }
+  return result;
+}
+
+-(void)initUmeng{
+  //UMeng 统计
+  [UMConfigure setLogEnabled:YES];
+  [RNUMConfigure initWithAppkey:UM_AppKey channel:UM_ChannelId];
+}
+@end
